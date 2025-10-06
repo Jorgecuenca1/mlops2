@@ -109,3 +109,4 @@ postgres-data/
 
 # Redis dumps
 dump.rdb
+.claude
