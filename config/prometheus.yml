@@ -1,0 +1,52 @@
+# Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'mlops-platform'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # FastAPI metrics
+  - job_name: 'fastapi'
+    static_configs:
+      - targets: ['fastapi:8000']
+    metrics_path: '/metrics'
+
+  # ML Model Services
+  - job_name: 'resnet-service'
+    static_configs:
+      - targets: ['resnet-service:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'mobilenet-service'
+    static_configs:
+      - targets: ['mobilenet-service:8000']
+    metrics_path: '/metrics'
+
+  - job_name: 'efficientnet-service'
+    static_configs:
+      - targets: ['efficientnet-service:8000']
+    metrics_path: '/metrics'
+
+  # PostgreSQL exporter (optional)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Kafka exporter (optional)
+  # - job_name: 'kafka'
+  #   static_configs:
+  #     - targets: ['kafka-exporter:9308']

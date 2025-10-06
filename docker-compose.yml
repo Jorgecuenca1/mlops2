@@ -1,0 +1,477 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # KAFKA ECOSYSTEM - Sistema de Mensajería
+  # ============================================
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: mlops-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - mlops-network
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: mlops-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    networks:
+      - mlops-network
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  # UI para Kafka - Visualizar topics, mensajes, etc.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: mlops-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: mlops-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - mlops-network
+
+  # ============================================
+  # DATABASES - Almacenamiento
+  # ============================================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: mlops-postgres
+    environment:
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+    ports:
+      - "5432:5432"
+    networks:
+      - mlops-network
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlops"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO - Almacenamiento de objetos (como AWS S3)
+  minio:
+    image: minio/minio:latest
+    container_name: mlops-minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    networks:
+      - mlops-network
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Crear buckets en MinIO al inicio
+  minio-init:
+    image: minio/mc:latest
+    container_name: mlops-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      sleep 10;
+      /usr/bin/mc alias set myminio http://minio:9000 minioadmin minioadmin123;
+      /usr/bin/mc mb myminio/raw-images --ignore-existing;
+      /usr/bin/mc mb myminio/processed-images --ignore-existing;
+      /usr/bin/mc mb myminio/models --ignore-existing;
+      /usr/bin/mc mb myminio/mlflow --ignore-existing;
+      /usr/bin/mc policy set download myminio/raw-images;
+      /usr/bin/mc policy set download myminio/processed-images;
+      echo 'MinIO buckets creados exitosamente';
+      "
+    networks:
+      - mlops-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: mlops-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - mlops-network
+    volumes:
+      - redis-data:/data
+
+  # ============================================
+  # MLFLOW - Tracking de Experimentos
+  # ============================================
+
+  mlflow:
+    build:
+      context: ./services/mlflow
+      dockerfile: Dockerfile
+    container_name: mlops-mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://mlops:mlops123@postgres:5432/mlops_db
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+    depends_on:
+      - postgres
+      - minio
+    networks:
+      - mlops-network
+    volumes:
+      - mlflow-data:/mlflow
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://mlops:mlops123@postgres:5432/mlops_db
+      --default-artifact-root s3://mlflow/
+      --host 0.0.0.0
+      --port 5000
+
+  # ============================================
+  # AIRFLOW - Orquestación de Pipelines
+  # ============================================
+
+  airflow-init:
+    image: apache/airflow:2.7.3-python3.11
+    container_name: mlops-airflow-init
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://mlops:mlops123@postgres:5432/mlops_db
+      AIRFLOW__CORE__FERNET_KEY: '81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin123
+    depends_on:
+      - postgres
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+      - ./services/airflow/logs:/opt/airflow/logs
+      - ./services/airflow/plugins:/opt/airflow/plugins
+    entrypoint: /bin/bash
+    command: >
+      -c "airflow db migrate &&
+          airflow users create --username admin --password admin123 --firstname Admin --lastname User --role Admin --email admin@example.com || true"
+
+  airflow-webserver:
+    image: apache/airflow:2.7.3-python3.11
+    container_name: mlops-airflow-webserver
+    depends_on:
+      - airflow-init
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://mlops:mlops123@postgres:5432/mlops_db
+      AIRFLOW__CORE__FERNET_KEY: '81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'mlops-secret-key-change-in-production'
+    ports:
+      - "8080:8080"
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+      - ./services/airflow/logs:/opt/airflow/logs
+      - ./services/airflow/plugins:/opt/airflow/plugins
+    command: webserver
+
+  airflow-scheduler:
+    image: apache/airflow:2.7.3-python3.11
+    container_name: mlops-airflow-scheduler
+    depends_on:
+      - airflow-init
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://mlops:mlops123@postgres:5432/mlops_db
+      AIRFLOW__CORE__FERNET_KEY: '81HqDtbqAywKSOumSha3BhWNOdQ26slT6K0YaZeZyPs='
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/airflow/dags:/opt/airflow/dags
+      - ./services/airflow/logs:/opt/airflow/logs
+      - ./services/airflow/plugins:/opt/airflow/plugins
+    command: scheduler
+
+  # ============================================
+  # ML MODEL SERVICES - Servicios de Inferencia
+  # ============================================
+
+  resnet-service:
+    build:
+      context: ./services/ml-models/resnet
+      dockerfile: Dockerfile
+    container_name: mlops-resnet
+    ports:
+      - "8003:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      MODEL_NAME: resnet50
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - kafka
+      - minio
+      - postgres
+      - mlflow
+    networks:
+      - mlops-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+
+  mobilenet-service:
+    build:
+      context: ./services/ml-models/mobilenet
+      dockerfile: Dockerfile
+    container_name: mlops-mobilenet
+    ports:
+      - "8004:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      MODEL_NAME: mobilenet_v2
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - kafka
+      - minio
+      - postgres
+      - mlflow
+    networks:
+      - mlops-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  efficientnet-service:
+    build:
+      context: ./services/ml-models/efficientnet
+      dockerfile: Dockerfile
+    container_name: mlops-efficientnet
+    ports:
+      - "8005:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      MODEL_NAME: efficientnet_b0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      - kafka
+      - minio
+      - postgres
+      - mlflow
+    networks:
+      - mlops-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1.5G
+
+  # ============================================
+  # API SERVICES - FastAPI y GraphQL
+  # ============================================
+
+  fastapi:
+    build:
+      context: ./services/fastapi
+      dockerfile: Dockerfile
+    container_name: mlops-fastapi
+    ports:
+      - "8001:8000"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin123
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - kafka
+      - minio
+      - postgres
+      - redis
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/fastapi:/app
+
+  graphql:
+    build:
+      context: ./services/graphql
+      dockerfile: Dockerfile
+    container_name: mlops-graphql
+    ports:
+      - "8002:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/graphql:/app
+
+  # ============================================
+  # DJANGO DASHBOARD - Frontend
+  # ============================================
+
+  django:
+    build:
+      context: ./services/django-dashboard
+      dockerfile: Dockerfile
+    container_name: mlops-django
+    ports:
+      - "8000:8000"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_USER: mlops
+      POSTGRES_PASSWORD: mlops123
+      POSTGRES_DB: mlops_db
+      FASTAPI_URL: http://fastapi:8000
+      GRAPHQL_URL: http://graphql:8000/graphql
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      - postgres
+      - fastapi
+      - graphql
+      - redis
+    networks:
+      - mlops-network
+    volumes:
+      - ./services/django-dashboard:/app
+      - django-static:/app/staticfiles
+      - django-media:/app/media
+
+  # ============================================
+  # MONITORING - Prometheus y Grafana
+  # ============================================
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mlops-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - mlops-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mlops-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+      GF_INSTALL_PLUGINS: grafana-piechart-panel
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./config/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./config/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    networks:
+      - mlops-network
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  mlops-network:
+    driver: bridge
+    name: mlops-network
+
+# ============================================
+# VOLUMES - Persistencia de Datos
+# ============================================
+
+volumes:
+  postgres-data:
+  minio-data:
+  redis-data:
+  kafka-data:
+  zookeeper-data:
+  zookeeper-logs:
+  mlflow-data:
+  prometheus-data:
+  grafana-data:
+  django-static:
+  django-media:
