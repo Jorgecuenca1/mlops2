@@ -127,21 +127,38 @@ class DatabaseClient:
         )
         logger.info("✅ Conectado a PostgreSQL")
 
-    def save_prediction(self, image_id: str, prediction: Dict):
+    def save_prediction(self, image_id: str, image_path: str, prediction: Dict):
         """Guarda predicción en la base de datos"""
         try:
             cursor = self.conn.cursor()
             cursor.execute("""
                 INSERT INTO predictions
-                (image_id, model_name, prediction_class, confidence, inference_time_ms)
-                VALUES (%s, %s, %s, %s, %s)
+                (image_id, image_path, model_name, prediction_class, confidence, inference_time_ms)
+                VALUES (%s, %s, %s, %s, %s, %s)
             """, (
                 image_id,
+                image_path,
                 prediction['model_name'],
                 prediction['prediction_class'],
                 prediction['confidence'],
                 prediction['inference_time_ms']
             ))
+
+            # Verificar si ya hay 3 predicciones para esta imagen
+            cursor.execute("""
+                SELECT COUNT(*) FROM predictions WHERE image_id = %s
+            """, (image_id,))
+            count = cursor.fetchone()[0]
+
+            # Si hay 3 o más predicciones, actualizar el estado de la imagen
+            if count >= 3:
+                cursor.execute("""
+                    UPDATE images
+                    SET processing_status = 'completed', processed_at = NOW()
+                    WHERE image_id = %s AND processing_status = 'pending'
+                """, (image_id,))
+                logger.info(f"✅ Imagen {image_id} marcada como completada ({count} predicciones)")
+
             self.conn.commit()
             cursor.close()
             logger.info(f"💾 Predicción guardada: {image_id} -> {prediction['prediction_class']}")
@@ -185,6 +202,7 @@ class ClassifierProcessor:
         try:
             image_id = message.get('image_id')
             descriptors = message.get('descriptors')
+            minio_path = message.get('minio_path')  # Capturar el path de la imagen
 
             logger.info(f"📥 Clasificando imagen {image_id} con {len(descriptors)} descriptores")
 
@@ -202,7 +220,7 @@ class ClassifierProcessor:
             }
 
             # Guardar en base de datos
-            self.db_client.save_prediction(image_id, result)
+            self.db_client.save_prediction(image_id, minio_path, result)
 
             # Publicar resultado
             self.producer.send('predictions-output', value=result)

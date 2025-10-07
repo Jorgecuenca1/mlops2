@@ -7,6 +7,7 @@ from minio import Minio
 from kafka import KafkaProducer, KafkaConsumer
 import json
 import logging
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +86,9 @@ class MinIOClient:
     def get_image_url(self, bucket, object_name, expires=3600):
         """Obtener URL temporal para imagen"""
         try:
-            return self.client.presigned_get_object(bucket, object_name, expires=expires)
+            # MinIO espera timedelta, no int
+            expires_td = timedelta(seconds=expires) if isinstance(expires, int) else expires
+            return self.client.presigned_get_object(bucket, object_name, expires=expires_td)
         except Exception as e:
             logger.error(f"Error getting presigned URL: {e}")
             return None

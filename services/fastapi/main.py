@@ -232,6 +232,7 @@ async def upload_image(
             "image_id": image_id,
             "minio_bucket": "raw-images",
             "minio_object": object_name,
+            "minio_path": minio_path,  # Agregar path completo para feature-extractor
             "source": "upload",
             "timestamp": timestamp.isoformat(),
             "metadata": metadata

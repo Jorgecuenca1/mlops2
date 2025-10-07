@@ -219,17 +219,56 @@ def models_overview(request):
 
 def models_compare(request):
     """Comparación entre modelos"""
-    # Primero obtener el queryset base
-    all_comparisons = ModelComparison.objects.all().order_by('-comparison_timestamp')
+    from collections import defaultdict, Counter
 
-    # Calcular estadísticas ANTES de hacer slice
+    # Obtener todas las predicciones agrupadas por image_id
+    predictions = Prediction.objects.all().order_by('-created_at')
+
+    # Agrupar por imagen
+    images_predictions = defaultdict(list)
+    for pred in predictions:
+        images_predictions[pred.image_id].append(pred)
+
+    # Crear comparaciones dinámicas
+    comparisons = []
+    for image_id, preds in list(images_predictions.items())[:50]:
+        if len(preds) < 3:  # Solo mostrar imágenes con al menos 3 predicciones
+            continue
+
+        # Organizar por modelo
+        by_model = {p.model_name: p for p in preds}
+
+        # Encontrar consenso
+        pred_classes = [p.prediction_class for p in preds]
+        consensus = Counter(pred_classes).most_common(1)[0][0] if pred_classes else None
+
+        # Encontrar el más rápido
+        fastest = min(preds, key=lambda x: x.inference_time_ms)
+
+        # Encontrar el más confiado
+        most_confident = max(preds, key=lambda x: x.confidence)
+
+        # Obtener info de la imagen
+        try:
+            image = Image.objects.get(image_id=image_id)
+        except Image.DoesNotExist:
+            continue
+
+        comparisons.append({
+            'image': image,
+            'image_id': image_id,
+            'predictions': preds,
+            'by_model': by_model,
+            'consensus_prediction': consensus,
+            'fastest_model': fastest.model_name,
+            'most_confident_model': most_confident.model_name,
+            'comparison_timestamp': max(p.created_at for p in preds),
+        })
+
     comparison_stats = {
-        'total': all_comparisons.count(),
-        'consensus_rate': all_comparisons.exclude(consensus_prediction__isnull=True).count(),
+        'total': len(comparisons),
+        'consensus_rate': len([c for c in comparisons if c['consensus_prediction']]),
     }
-
-    # Ahora sí hacer el slice para la vista
-    comparisons = all_comparisons[:50]
 
     context = {
         'comparisons': comparisons,
@@ -286,7 +325,7 @@ def kafka_status(request):
 
     context = {
         'topics': topics,
-        'kafka_url': 'http://localhost:8090',  # Kafka UI
+        'kafka_url': 'http://localhost:8090',  # Kafka UI (URL externa para el navegador)
     }
 
     return render(request, 'dashboard/kafka_status.html', context)
@@ -294,7 +333,18 @@ def kafka_status(request):
 
 def services_status(request):
     """Estado de servicios"""
+    # Usar nombres de servicios Docker para health check interno
     services = {
+        'FastAPI': 'http://fastapi:8000',  # Puerto interno, no el mapeado
+        'MLflow': 'http://mlflow:5000',
+        'Kafka UI': 'http://kafka-ui:8080',  # Puerto interno es 8080
+        'Grafana': 'http://grafana:3000',
+        'Prometheus': 'http://prometheus:9090',
+        'MinIO': 'http://minio:9000',  # API endpoint, no console
+    }
+
+    # URLs externas para el navegador del usuario
+    external_urls = {
         'FastAPI': 'http://localhost:8001',
         'MLflow': 'http://localhost:5000',
         'Kafka UI': 'http://localhost:8090',
@@ -310,13 +360,13 @@ def services_status(request):
             import requests
             response = requests.get(url, timeout=2)
             services_status[name] = {
-                'url': url,
+                'url': external_urls[name],  # Mostrar URL externa al usuario
                 'status': 'online' if response.status_code < 500 else 'error',
                 'status_code': response.status_code
             }
         except:
             services_status[name] = {
-                'url': url,
+                'url': external_urls[name],  # Mostrar URL externa al usuario
                 'status': 'offline',
                 'status_code': None
             }

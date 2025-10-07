@@ -193,7 +193,7 @@ services:
       dockerfile: Dockerfile
     container_name: mlops-classifier-fast
     ports:
-      - "8003:8000"
+      - "8006:8000"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       MODEL_VARIANT: fast
@@ -278,7 +278,7 @@ services:
       dockerfile: Dockerfile
     container_name: mlops-django
     ports:
-      - "8000:8000"
+      - "8003:8000"
     environment:
       POSTGRES_HOST: postgres
       POSTGRES_USER: mlops
