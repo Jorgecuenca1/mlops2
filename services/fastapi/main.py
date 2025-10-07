@@ -201,13 +201,14 @@ async def upload_image(
         metadata = get_image_metadata(BytesIO(contents))
 
         # Guardar en MinIO
-        minio_path = f"raw-images/{timestamp.strftime('%Y/%m/%d')}/{image_id}.jpg"
+        object_name = f"{timestamp.strftime('%Y/%m/%d')}/{image_id}.jpg"
         minio_client.upload_image(
             bucket="raw-images",
-            object_name=minio_path,
+            object_name=object_name,
             data=BytesIO(contents),
             length=file_size
         )
+        minio_path = f"raw-images/{object_name}"  # Path completo para referencia
 
         # Registrar en PostgreSQL
         db = next(get_db())
@@ -229,7 +230,8 @@ async def upload_image(
         # Publicar en Kafka
         kafka_message = {
             "image_id": image_id,
-            "minio_path": minio_path,
+            "minio_bucket": "raw-images",
+            "minio_object": object_name,
             "source": "upload",
             "timestamp": timestamp.isoformat(),
             "metadata": metadata
