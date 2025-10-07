@@ -1,0 +1,110 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Imágenes - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-images"></i> Imágenes</h1>
+        <p class="text-muted">Gestión de imágenes procesadas</p>
+    </div>
+    <a href="{% url 'dashboard:image_upload' %}" class="btn btn-primary">
+        <i class="bi bi-cloud-upload"></i> Subir Imagen
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="table-card mb-4">
+    <form method="get" class="row g-3">
+        <div class="col-md-4">
+            <label class="form-label">Estado</label>
+            <select name="status" class="form-select">
+                <option value="">Todos</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if request.GET.status == value %}selected{% endif %}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label">Fuente</label>
+            <select name="source" class="form-select">
+                <option value="">Todas</option>
+                {% for value, label in source_choices %}
+                <option value="{{ value }}" {% if request.GET.source == value %}selected{% endif %}>
+                    {{ label }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary me-2">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+            <a href="{% url 'dashboard:images_list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Lista de Imágenes -->
+<div class="table-card">
+    <h5 class="mb-3">Total: {{ images.count }} imágenes</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre Original</th>
+                    <th>Fuente</th>
+                    <th>Estado</th>
+                    <th>Tamaño</th>
+                    <th>Fecha</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for image in images %}
+                <tr>
+                    <td><code>{{ image.image_id|slice:":12" }}...</code></td>
+                    <td>{{ image.original_filename|default:"-" }}</td>
+                    <td><span class="badge bg-info">{{ image.get_source_display }}</span></td>
+                    <td>
+                        <span class="badge bg-{% if image.processing_status == 'completed' %}success{% elif image.processing_status == 'failed' %}danger{% elif image.processing_status == 'processing' %}warning{% else %}secondary{% endif %}">
+                            {{ image.get_processing_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if image.file_size_bytes %}
+                            {{ image.file_size_bytes|filesizeformat }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td><small>{{ image.upload_timestamp|date:"Y-m-d H:i" }}</small></td>
+                    <td>
+                        <a href="{% url 'dashboard:image_detail' image.image_id %}"
+                           class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i> Ver
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <i class="bi bi-inbox" style="font-size: 3rem; color: #ccc;"></i>
+                        <p class="text-muted mt-3">No hay imágenes disponibles</p>
+                        <a href="{% url 'dashboard:image_upload' %}" class="btn btn-primary">
+                            <i class="bi bi-cloud-upload"></i> Subir Primera Imagen
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

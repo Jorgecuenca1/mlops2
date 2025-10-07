@@ -1,0 +1,112 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Predicciones - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-graph-up"></i> Predicciones</h1>
+    <p class="text-muted">Historial de predicciones de modelos</p>
+</div>
+
+<!-- Estadísticas -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card primary">
+            <div class="icon"><i class="bi bi-check-circle"></i></div>
+            <h3>{{ stats.total|default:0 }}</h3>
+            <p>Total Predicciones</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card success">
+            <div class="icon"><i class="bi bi-percent"></i></div>
+            <h3>{{ stats.avg_confidence|floatformat:1|default:"0" }}%</h3>
+            <p>Confianza Promedio</p>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card info">
+            <div class="icon"><i class="bi bi-stopwatch"></i></div>
+            <h3>{{ stats.avg_time|floatformat:0|default:"0" }}ms</h3>
+            <p>Tiempo Promedio</p>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="table-card mb-4">
+    <form method="get" class="row g-3">
+        <div class="col-md-5">
+            <label class="form-label">Modelo</label>
+            <select name="model" class="form-select">
+                <option value="">Todos los modelos</option>
+                {% for model in available_models %}
+                <option value="{{ model }}" {% if request.GET.model == model %}selected{% endif %}>
+                    {{ model }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-5">
+            <label class="form-label">Clase Predicha</label>
+            <select name="class" class="form-select">
+                <option value="">Todas las clases</option>
+                {% for cls in available_classes %}
+                <option value="{{ cls }}" {% if request.GET.class == cls %}selected{% endif %}>
+                    {{ cls }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-funnel"></i> Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tabla de Predicciones -->
+<div class="table-card">
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Modelo</th>
+                    <th>Clase</th>
+                    <th>Confianza</th>
+                    <th>Tiempo</th>
+                    <th>Image ID</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pred in predictions %}
+                <tr>
+                    <td><span class="badge bg-primary">{{ pred.model_name }}</span></td>
+                    <td><strong>{{ pred.prediction_class }}</strong></td>
+                    <td>
+                        <div class="progress" style="width: 150px; height: 25px;">
+                            <div class="progress-bar {% if pred.confidence > 80 %}bg-success{% elif pred.confidence > 60 %}bg-warning{% else %}bg-danger{% endif %}"
+                                 role="progressbar" style="width: {{ pred.confidence }}%">
+                                {{ pred.confidence|floatformat:1 }}%
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ pred.inference_time_ms }}ms</td>
+                    <td><code>{{ pred.image_id|slice:":10" }}...</code></td>
+                    <td><small>{{ pred.created_at|date:"Y-m-d H:i:s" }}</small></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-5">
+                        No hay predicciones disponibles
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

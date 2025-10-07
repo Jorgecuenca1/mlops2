@@ -1,0 +1,136 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Estado de Servicios - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-hdd-stack"></i> Estado de Servicios</h1>
+    <p class="text-muted">Monitoreo de todos los servicios del sistema</p>
+</div>
+
+<div class="row g-4">
+    {% for name, info in services.items %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <h5 class="mb-0">{{ name }}</h5>
+                <span class="badge badge-status-{{ info.status }}">
+                    {{ info.status|upper }}
+                </span>
+            </div>
+
+            <div class="mb-3">
+                {% if info.status == 'online' %}
+                    <i class="bi bi-check-circle-fill text-success" style="font-size: 2rem;"></i>
+                {% elif info.status == 'offline' %}
+                    <i class="bi bi-x-circle-fill text-danger" style="font-size: 2rem;"></i>
+                {% else %}
+                    <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 2rem;"></i>
+                {% endif %}
+            </div>
+
+            <p class="small text-muted mb-2">
+                <i class="bi bi-link-45deg"></i>
+                <a href="{{ info.url }}" target="_blank" class="text-decoration-none">
+                    {{ info.url }}
+                </a>
+            </p>
+
+            {% if info.status_code %}
+            <p class="small mb-0">
+                <strong>Status Code:</strong> <code>{{ info.status_code }}</code>
+            </p>
+            {% endif %}
+
+            <div class="mt-3">
+                <a href="{{ info.url }}" target="_blank" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="bi bi-box-arrow-up-right"></i> Abrir Servicio
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Información adicional -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5><i class="bi bi-info-circle"></i> Servicios Disponibles</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Servicio</th>
+                            <th>Puerto</th>
+                            <th>Descripción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Django Dashboard</strong></td>
+                            <td>8000</td>
+                            <td>Dashboard unificado (este)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>FastAPI</strong></td>
+                            <td>8001</td>
+                            <td>API principal de predicciones</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Classifier Fast</strong></td>
+                            <td>8003</td>
+                            <td>Clasificador rápido (15ms)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Classifier Accurate</strong></td>
+                            <td>8004</td>
+                            <td>Clasificador preciso (45ms)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Classifier Balanced</strong></td>
+                            <td>8005</td>
+                            <td>Clasificador balanceado (25ms)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>MLflow</strong></td>
+                            <td>5000</td>
+                            <td>Tracking de experimentos</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Kafka UI</strong></td>
+                            <td>8090</td>
+                            <td>Interfaz de Kafka</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Grafana</strong></td>
+                            <td>3000</td>
+                            <td>Dashboards de métricas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Prometheus</strong></td>
+                            <td>9090</td>
+                            <td>Sistema de métricas</td>
+                        </tr>
+                        <tr>
+                            <td><strong>MinIO Console</strong></td>
+                            <td>9001</td>
+                            <td>Almacenamiento de objetos</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh cada 30 segundos
+    setTimeout(() => {
+        location.reload();
+    }, 30000);
+</script>
+{% endblock %}

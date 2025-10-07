@@ -1,0 +1,63 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Experimento MLflow - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-flag"></i> Experimento MLflow</h1>
+        <p class="text-muted">ID: {{ experiment_id }}</p>
+    </div>
+    <a href="{{ mlflow_url }}/#/experiments/{{ experiment_id }}" target="_blank" class="btn btn-primary">
+        <i class="bi bi-box-arrow-up-right"></i> Abrir en MLflow
+    </a>
+</div>
+
+<!-- Runs del Experimento -->
+<div class="table-card">
+    <h5 class="mb-3">Runs del Experimento</h5>
+    {% if runs %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Run ID</th>
+                        <th>Estado</th>
+                        <th>Inicio</th>
+                        <th>Duración</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for run in runs %}
+                    <tr>
+                        <td><code>{{ run.info.run_id|slice:":8" }}...</code></td>
+                        <td>
+                            <span class="badge bg-{% if run.info.status == 'FINISHED' %}success{% elif run.info.status == 'RUNNING' %}warning{% else %}danger{% endif %}">
+                                {{ run.info.status }}
+                            </span>
+                        </td>
+                        <td><small>{{ run.info.start_time|date:"Y-m-d H:i:s" }}</small></td>
+                        <td>{{ run.info.end_time|timesince:run.info.start_time }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            No hay runs para este experimento.
+        </div>
+    {% endif %}
+</div>
+
+<!-- Botones -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:mlflow_experiments' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Experimentos
+        </a>
+    </div>
+</div>
+
+{% endblock %}

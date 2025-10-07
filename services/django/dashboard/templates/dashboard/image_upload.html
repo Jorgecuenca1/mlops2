@@ -1,0 +1,110 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Subir Imagen - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-cloud-upload"></i> Subir Imagen</h1>
+    <p class="text-muted">Sube una imagen para clasificarla con los modelos ML</p>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="table-card">
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                {% csrf_token %}
+
+                <div class="mb-4">
+                    <label for="imageInput" class="form-label h5">Seleccionar Imagen</label>
+                    <input class="form-control form-control-lg" type="file" id="imageInput"
+                           name="image" accept="image/*" required>
+                    <div class="form-text">
+                        Formatos aceptados: JPG, PNG, GIF (máx. 10MB)
+                    </div>
+                </div>
+
+                <!-- Preview de la imagen -->
+                <div id="imagePreview" class="mb-4 text-center" style="display: none;">
+                    <h6 class="mb-3">Vista Previa:</h6>
+                    <img id="previewImg" class="img-fluid rounded" style="max-height: 400px;" alt="Preview">
+                </div>
+
+                <!-- Botones de acción -->
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                        <i class="bi bi-cloud-upload"></i> Subir y Clasificar
+                    </button>
+                    <a href="{% url 'dashboard:images_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Volver a Lista
+                    </a>
+                </div>
+            </form>
+
+            <!-- Información adicional -->
+            <hr class="my-4">
+
+            <div class="alert alert-info">
+                <h6><i class="bi bi-info-circle"></i> Proceso de Clasificación</h6>
+                <ol class="mb-0">
+                    <li>La imagen se sube a MinIO (almacenamiento)</li>
+                    <li>Se envía a Kafka para procesamiento asíncrono</li>
+                    <li>El feature-extractor extrae características</li>
+                    <li>Los 3 clasificadores procesan en paralelo</li>
+                    <li>Los resultados se guardan en PostgreSQL</li>
+                </ol>
+            </div>
+
+            <div class="row mt-3">
+                <div class="col-md-4 text-center">
+                    <div class="p-3 border rounded">
+                        <i class="bi bi-lightning-charge text-warning" style="font-size: 2rem;"></i>
+                        <p class="small mb-0 mt-2"><strong>Fast Classifier</strong><br>~15ms</p>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div class="p-3 border rounded">
+                        <i class="bi bi-speedometer text-info" style="font-size: 2rem;"></i>
+                        <p class="small mb-0 mt-2"><strong>Balanced Classifier</strong><br>~25ms</p>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div class="p-3 border rounded">
+                        <i class="bi bi-bullseye text-success" style="font-size: 2rem;"></i>
+                        <p class="small mb-0 mt-2"><strong>Accurate Classifier</strong><br>~45ms</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const imageInput = document.getElementById('imageInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const previewImg = document.getElementById('previewImg');
+    const uploadForm = document.getElementById('uploadForm');
+    const submitBtn = document.getElementById('submitBtn');
+
+    // Preview de imagen
+    imageInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                previewImg.src = event.target.result;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Mostrar loading al enviar
+    uploadForm.addEventListener('submit', function() {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    });
+</script>
+{% endblock %}

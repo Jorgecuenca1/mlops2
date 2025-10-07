@@ -1,0 +1,152 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Detalle de Predicción - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-graph-up"></i> Detalle de Predicción</h1>
+    <p class="text-muted">ID: {{ prediction.id }}</p>
+</div>
+
+<div class="row g-4">
+    <!-- Información Principal -->
+    <div class="col-md-6">
+        <div class="stat-card primary">
+            <h5>Predicción</h5>
+            <h2 class="mt-3">{{ prediction.prediction_class }}</h2>
+            <div class="progress mt-3" style="height: 30px;">
+                <div class="progress-bar bg-success" role="progressbar"
+                     style="width: {{ prediction.confidence }}%">
+                    {{ prediction.confidence|floatformat:2 }}% Confianza
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Métricas -->
+    <div class="col-md-6">
+        <div class="stat-card info">
+            <h5>Métricas</h5>
+            <div class="row mt-3">
+                <div class="col-6">
+                    <p class="text-muted mb-1">Tiempo de Inferencia</p>
+                    <h3>{{ prediction.inference_time_ms }}ms</h3>
+                </div>
+                <div class="col-6">
+                    <p class="text-muted mb-1">Modelo</p>
+                    <h5><span class="badge bg-primary">{{ prediction.model_name }}</span></h5>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detalles Técnicos -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-info-circle"></i> Detalles Técnicos</h5>
+            <table class="table table-sm">
+                <tbody>
+                    <tr>
+                        <th style="width: 200px;">ID de Predicción:</th>
+                        <td>{{ prediction.id }}</td>
+                    </tr>
+                    <tr>
+                        <th>Image ID:</th>
+                        <td><code>{{ prediction.image_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Ruta de Imagen:</th>
+                        <td><small>{{ prediction.image_path }}</small></td>
+                    </tr>
+                    <tr>
+                        <th>Modelo:</th>
+                        <td><span class="badge bg-primary">{{ prediction.model_name }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Clase Predicha:</th>
+                        <td><strong>{{ prediction.prediction_class }}</strong></td>
+                    </tr>
+                    <tr>
+                        <th>Confianza:</th>
+                        <td>{{ prediction.confidence|floatformat:4 }}%</td>
+                    </tr>
+                    <tr>
+                        <th>Tiempo de Inferencia:</th>
+                        <td>{{ prediction.inference_time_ms }} ms</td>
+                    </tr>
+                    <tr>
+                        <th>Fecha de Predicción:</th>
+                        <td>{{ prediction.created_at|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% if prediction.image_size_bytes %}
+                    <tr>
+                        <th>Tamaño de Imagen:</th>
+                        <td>{{ prediction.image_size_bytes|filesizeformat }}</td>
+                    </tr>
+                    {% endif %}
+                    {% if prediction.image_width and prediction.image_height %}
+                    <tr>
+                        <th>Dimensiones:</th>
+                        <td>{{ prediction.image_width }} x {{ prediction.image_height }} px</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Predicciones Relacionadas -->
+{% if related_predictions %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-arrow-left-right"></i> Otras Predicciones para la Misma Imagen</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Modelo</th>
+                            <th>Predicción</th>
+                            <th>Confianza</th>
+                            <th>Tiempo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pred in related_predictions %}
+                        <tr>
+                            <td><span class="badge bg-primary">{{ pred.model_name }}</span></td>
+                            <td><strong>{{ pred.prediction_class }}</strong></td>
+                            <td>
+                                <div class="progress" style="width: 120px; height: 20px;">
+                                    <div class="progress-bar" style="width: {{ pred.confidence }}%">
+                                        {{ pred.confidence|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ pred.inference_time_ms }}ms</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Botones -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:predictions_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Predicciones
+        </a>
+        <a href="{% url 'dashboard:image_detail' prediction.image_id %}" class="btn btn-primary">
+            <i class="bi bi-image"></i> Ver Imagen
+        </a>
+    </div>
+</div>
+
+{% endblock %}

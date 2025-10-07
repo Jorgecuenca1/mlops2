@@ -1,0 +1,93 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Kafka - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-diagram-3"></i> Estado de Kafka</h1>
+        <p class="text-muted">Topics y mensajería del sistema</p>
+    </div>
+    <a href="{{ kafka_url }}" target="_blank" class="btn btn-primary">
+        <i class="bi bi-box-arrow-up-right"></i> Abrir Kafka UI
+    </a>
+</div>
+
+<!-- Topics de Kafka -->
+<div class="row g-4 mb-4">
+    <div class="col-md-12">
+        <div class="stat-card">
+            <h5 class="mb-3"><i class="bi bi-list-ul"></i> Topics Disponibles</h5>
+            {% if topics %}
+                <div class="row">
+                    {% for topic in topics %}
+                    <div class="col-md-6 mb-3">
+                        <div class="p-3 border rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-inbox-fill text-primary me-3" style="font-size: 1.5rem;"></i>
+                                <div>
+                                    <h6 class="mb-0">{{ topic }}</h6>
+                                    <small class="text-muted">Topic activo</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    No se pudieron obtener los topics. Verifica que Kafka esté corriendo.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Información sobre Topics -->
+<div class="table-card">
+    <h5 class="mb-3"><i class="bi bi-info-circle"></i> Topics del Sistema MLOps</h5>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Topic</th>
+                    <th>Descripción</th>
+                    <th>Productores</th>
+                    <th>Consumidores</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>images-input-stream</code></td>
+                    <td>Imágenes subidas para procesamiento</td>
+                    <td>FastAPI</td>
+                    <td>Feature Extractor</td>
+                </tr>
+                <tr>
+                    <td><code>features-output-stream</code></td>
+                    <td>Características extraídas de imágenes</td>
+                    <td>Feature Extractor</td>
+                    <td>Clasificadores (3)</td>
+                </tr>
+                <tr>
+                    <td><code>predictions-stream</code></td>
+                    <td>Predicciones de los modelos</td>
+                    <td>Clasificadores</td>
+                    <td>Dashboard, Analytics</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Enlace a Kafka UI -->
+<div class="alert alert-info mt-4">
+    <h6><i class="bi bi-lightbulb"></i> Kafka UI</h6>
+    <p>Para ver mensajes en tiempo real, gráficos de throughput y gestión avanzada de topics:</p>
+    <a href="{{ kafka_url }}" target="_blank" class="btn btn-sm btn-primary">
+        <i class="bi bi-box-arrow-up-right"></i> Abrir Kafka UI Completo
+    </a>
+</div>
+
+{% endblock %}

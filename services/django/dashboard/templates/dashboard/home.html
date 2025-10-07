@@ -1,0 +1,220 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Dashboard - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-speedometer2"></i> Dashboard Principal</h1>
+    <p class="text-muted">Visión general del sistema MLOps</p>
+</div>
+
+<!-- Estadísticas principales -->
+<div class="row g-4 mb-4">
+    <div class="col-md-3">
+        <div class="stat-card primary">
+            <div class="icon">
+                <i class="bi bi-images"></i>
+            </div>
+            <h3>{{ total_images|default:0 }}</h3>
+            <p>Imágenes Totales</p>
+            <small class="text-success">+{{ recent_images_count|default:0 }} últimas 24h</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card success">
+            <div class="icon">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <h3>{{ total_predictions|default:0 }}</h3>
+            <p>Predicciones Totales</p>
+            <small class="text-success">+{{ recent_predictions_count|default:0 }} últimas 24h</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card info">
+            <div class="icon">
+                <i class="bi bi-cpu"></i>
+            </div>
+            <h3>{{ predictions_by_model|length|default:0 }}</h3>
+            <p>Modelos Activos</p>
+            <small class="text-muted">En ejecución</small>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="stat-card warning">
+            <div class="icon">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <h3>{% if predictions_by_model %}{{ predictions_by_model.0.avg_time|floatformat:0 }}ms{% else %}--{% endif %}</h3>
+            <p>Tiempo Promedio</p>
+            <small class="text-muted">Inferencia</small>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos y datos -->
+<div class="row g-4 mb-4">
+    <!-- Rendimiento por Modelo -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-bar-chart-fill"></i> Rendimiento por Modelo</h5>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Modelo</th>
+                            <th>Predicciones</th>
+                            <th>Confianza Avg</th>
+                            <th>Tiempo Avg</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for model in predictions_by_model %}
+                        <tr>
+                            <td><span class="badge bg-primary">{{ model.model_name }}</span></td>
+                            <td>{{ model.count }}</td>
+                            <td>{{ model.avg_confidence|floatformat:2 }}%</td>
+                            <td>{{ model.avg_time|floatformat:0 }}ms</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No hay datos disponibles</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Predicciones Recientes -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-clock-history"></i> Predicciones Recientes</h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Modelo</th>
+                            <th>Predicción</th>
+                            <th>Confianza</th>
+                            <th>Tiempo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pred in recent_predictions %}
+                        <tr>
+                            <td><small class="badge bg-info">{{ pred.model_name }}</small></td>
+                            <td><strong>{{ pred.prediction_class }}</strong></td>
+                            <td>
+                                <div class="progress" style="height: 20px;">
+                                    <div class="progress-bar" role="progressbar"
+                                         style="width: {{ pred.confidence }}%">
+                                        {{ pred.confidence|floatformat:1 }}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td><small>{{ pred.inference_time_ms }}ms</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No hay predicciones</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-end mt-2">
+                <a href="{% url 'dashboard:predictions_list' %}" class="btn btn-sm btn-outline-primary">
+                    Ver todas <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Imágenes Recientes -->
+<div class="row g-4 mb-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-images"></i> Imágenes Recientes</h5>
+            <div class="row g-3">
+                {% for image in recent_images %}
+                <div class="col-md-2">
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="bi bi-image" style="font-size: 3rem; color: #6c757d;"></i>
+                            <p class="small mt-2 mb-0"><strong>{{ image.image_id|slice:":8" }}...</strong></p>
+                            <p class="small text-muted mb-0">{{ image.source }}</p>
+                            <span class="badge bg-{% if image.processing_status == 'completed' %}success{% else %}warning{% endif %} mt-1">
+                                {{ image.get_processing_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="col-12 text-center text-muted py-4">
+                    <p>No hay imágenes disponibles</p>
+                    <a href="{% url 'dashboard:image_upload' %}" class="btn btn-primary">
+                        <i class="bi bi-cloud-upload"></i> Subir Primera Imagen
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Eventos del Sistema -->
+<div class="row g-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-activity"></i> Eventos del Sistema</h5>
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Severidad</th>
+                            <th>Tipo</th>
+                            <th>Servicio</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for event in recent_events %}
+                        <tr>
+                            <td>
+                                <span class="badge bg-{% if event.severity == 'error' %}danger{% elif event.severity == 'warning' %}warning{% else %}info{% endif %}">
+                                    {{ event.get_severity_display }}
+                                </span>
+                            </td>
+                            <td>{{ event.event_type }}</td>
+                            <td><small>{{ event.service_name|default:"-" }}</small></td>
+                            <td><small>{{ event.created_at|date:"Y-m-d H:i" }}</small></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No hay eventos</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh cada 30 segundos
+    setInterval(() => {
+        fetch('{% url "dashboard:api_stats" %}')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Stats updated:', data);
+            });
+    }, 30000);
+</script>
+{% endblock %}

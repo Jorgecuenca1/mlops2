@@ -1,0 +1,188 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Detalle de Imagen - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-image"></i> Detalle de Imagen</h1>
+    <p class="text-muted">{{ image.image_id }}</p>
+</div>
+
+<div class="row g-4">
+    <!-- Información de la Imagen -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-info-circle"></i> Información</h5>
+            <table class="table table-sm">
+                <tbody>
+                    <tr>
+                        <th>Image ID:</th>
+                        <td><code>{{ image.image_id }}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Nombre Original:</th>
+                        <td>{{ image.original_filename|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Fuente:</th>
+                        <td><span class="badge bg-info">{{ image.get_source_display }}</span></td>
+                    </tr>
+                    <tr>
+                        <th>Estado:</th>
+                        <td>
+                            <span class="badge bg-{% if image.processing_status == 'completed' %}success{% elif image.processing_status == 'failed' %}danger{% elif image.processing_status == 'processing' %}warning{% else %}secondary{% endif %}">
+                                {{ image.get_processing_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Tamaño:</th>
+                        <td>
+                            {% if image.file_size_bytes %}
+                                {{ image.file_size_bytes|filesizeformat }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Dimensiones:</th>
+                        <td>
+                            {% if image.width and image.height %}
+                                {{ image.width }} x {{ image.height }} px
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Formato:</th>
+                        <td>{{ image.format|default:"-" }}</td>
+                    </tr>
+                    <tr>
+                        <th>Subida:</th>
+                        <td>{{ image.upload_timestamp|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% if image.processed_at %}
+                    <tr>
+                        <th>Procesada:</th>
+                        <td>{{ image.processed_at|date:"Y-m-d H:i:s" }}</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Vista Previa -->
+    <div class="col-md-6">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-eye"></i> Vista Previa</h5>
+            {% if image_url %}
+                <img src="{{ image_url }}" class="img-fluid rounded" alt="{{ image.image_id }}">
+            {% else %}
+                <div class="text-center p-5 bg-light rounded">
+                    <i class="bi bi-image" style="font-size: 5rem; color: #ccc;"></i>
+                    <p class="text-muted mt-3">Imagen no disponible</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Predicciones para esta Imagen -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-graph-up"></i> Predicciones ({{ predictions.count }})</h5>
+            {% if predictions %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Modelo</th>
+                                <th>Predicción</th>
+                                <th>Confianza</th>
+                                <th>Tiempo</th>
+                                <th>Fecha</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pred in predictions %}
+                            <tr>
+                                <td><span class="badge bg-primary">{{ pred.model_name }}</span></td>
+                                <td><strong>{{ pred.prediction_class }}</strong></td>
+                                <td>
+                                    <div class="progress" style="width: 150px; height: 25px;">
+                                        <div class="progress-bar {% if pred.confidence > 80 %}bg-success{% elif pred.confidence > 60 %}bg-warning{% else %}bg-danger{% endif %}"
+                                             role="progressbar" style="width: {{ pred.confidence }}%">
+                                            {{ pred.confidence|floatformat:1 }}%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>{{ pred.inference_time_ms }}ms</td>
+                                <td><small>{{ pred.created_at|date:"Y-m-d H:i:s" }}</small></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    No hay predicciones para esta imagen aún.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Comparaciones -->
+{% if comparisons %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="table-card">
+            <h5 class="mb-3"><i class="bi bi-bar-chart"></i> Comparaciones de Modelos</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Consenso</th>
+                            <th>Modelo Más Rápido</th>
+                            <th>Más Confiado</th>
+                            <th>Fecha</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for comp in comparisons %}
+                        <tr>
+                            <td>
+                                {% if comp.consensus_prediction %}
+                                    <span class="badge bg-success">{{ comp.consensus_prediction }}</span>
+                                {% else %}
+                                    <span class="badge bg-warning">Sin consenso</span>
+                                {% endif %}
+                            </td>
+                            <td><span class="badge bg-info">{{ comp.fastest_model|default:"-" }}</span></td>
+                            <td><span class="badge bg-primary">{{ comp.most_confident_model|default:"-" }}</span></td>
+                            <td><small>{{ comp.comparison_timestamp|date:"Y-m-d H:i:s" }}</small></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Botones de Acción -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'dashboard:images_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver a Lista
+        </a>
+    </div>
+</div>
+
+{% endblock %}

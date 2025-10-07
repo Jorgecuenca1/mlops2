@@ -1,0 +1,84 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}MLflow - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex justify-content-between align-items-center">
+    <div>
+        <h1><i class="bi bi-flag"></i> Experimentos MLflow</h1>
+        <p class="text-muted">Tracking de modelos y experimentos</p>
+    </div>
+    <a href="{{ mlflow_url }}" target="_blank" class="btn btn-primary">
+        <i class="bi bi-box-arrow-up-right"></i> Abrir MLflow UI
+    </a>
+</div>
+
+<!-- Experimentos -->
+<div class="table-card">
+    <h5 class="mb-3">Experimentos Registrados</h5>
+    {% if experiments %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>ID</th>
+                        <th>Artifact Location</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for exp in experiments %}
+                    <tr>
+                        <td><strong>{{ exp.name }}</strong></td>
+                        <td><code>{{ exp.experiment_id }}</code></td>
+                        <td><small>{{ exp.artifact_location|default:"-" }}</small></td>
+                        <td>
+                            <a href="{% url 'dashboard:mlflow_experiment_detail' exp.experiment_id %}"
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i> Ver Runs
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i>
+            No hay experimentos disponibles o no se pudo conectar con MLflow.
+            <a href="{{ mlflow_url }}" target="_blank">Abrir MLflow UI</a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Información -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="alert alert-light">
+            <h6><i class="bi bi-info-circle"></i> ¿Qué es MLflow?</h6>
+            <p class="mb-0">
+                MLflow es una plataforma de código abierto para gestionar el ciclo de vida completo de Machine Learning,
+                incluyendo experimentación, reproducibilidad y despliegue.
+            </p>
+            <hr>
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <strong><i class="bi bi-database"></i> Tracking</strong>
+                    <p class="small">Registra parámetros, métricas y modelos</p>
+                </div>
+                <div class="col-md-4">
+                    <strong><i class="bi bi-box"></i> Projects</strong>
+                    <p class="small">Empaqueta código ML para reproducir</p>
+                </div>
+                <div class="col-md-4">
+                    <strong><i class="bi bi-rocket"></i> Models</strong>
+                    <p class="small">Gestiona y despliega modelos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

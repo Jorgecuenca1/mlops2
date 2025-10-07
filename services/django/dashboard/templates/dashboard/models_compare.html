@@ -1,0 +1,82 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Comparar Modelos - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-bar-chart"></i> Comparación de Modelos</h1>
+    <p class="text-muted">Análisis comparativo de rendimiento</p>
+</div>
+
+<!-- Estadísticas de Comparación -->
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <div class="stat-card primary">
+            <div class="icon"><i class="bi bi-check-all"></i></div>
+            <h3>{{ stats.total|default:0 }}</h3>
+            <p>Comparaciones Totales</p>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="stat-card success">
+            <div class="icon"><i class="bi bi-check-circle"></i></div>
+            <h3>{{ stats.consensus_rate|default:0 }}</h3>
+            <p>Con Consenso</p>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Comparaciones -->
+<div class="table-card">
+    <h5 class="mb-3">Comparaciones Recientes</h5>
+    <div class="table-responsive">
+        <table class="table table-sm">
+            <thead>
+                <tr>
+                    <th>Image ID</th>
+                    <th>Consenso</th>
+                    <th>Modelo Más Rápido</th>
+                    <th>Más Confiado</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comp in comparisons %}
+                <tr>
+                    <td><code>{{ comp.image_id|slice:":10" }}...</code></td>
+                    <td>
+                        {% if comp.consensus_prediction %}
+                            <span class="badge bg-success">{{ comp.consensus_prediction }}</span>
+                        {% else %}
+                            <span class="badge bg-warning">Sin consenso</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if comp.fastest_model %}
+                            <span class="badge bg-info">{{ comp.fastest_model }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if comp.most_confident_model %}
+                            <span class="badge bg-primary">{{ comp.most_confident_model }}</span>
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                    <td><small>{{ comp.comparison_timestamp|date:"Y-m-d H:i" }}</small></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        No hay comparaciones disponibles
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

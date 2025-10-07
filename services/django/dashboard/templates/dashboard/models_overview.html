@@ -1,0 +1,85 @@
+{% extends 'dashboard/base.html' %}
+
+{% block title %}Modelos - MLOps{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1><i class="bi bi-gear"></i> Vista General de Modelos</h1>
+    <p class="text-muted">Rendimiento y métricas de los clasificadores</p>
+</div>
+
+<!-- Estadísticas por Modelo -->
+<div class="row g-4 mb-4">
+    {% for model in model_stats %}
+    <div class="col-md-4">
+        <div class="stat-card">
+            <h5>{{ model.model_name }}</h5>
+            <div class="row mt-3">
+                <div class="col-6">
+                    <p class="text-muted mb-1">Predicciones</p>
+                    <h4>{{ model.total_predictions }}</h4>
+                </div>
+                <div class="col-6">
+                    <p class="text-muted mb-1">Confianza Avg</p>
+                    <h4>{{ model.avg_confidence|floatformat:1 }}%</h4>
+                </div>
+            </div>
+            <hr>
+            <div class="row">
+                <div class="col-12">
+                    <p class="text-muted mb-1">Tiempo de Inferencia</p>
+                    <div class="d-flex justify-content-between">
+                        <small>Min: {{ model.min_inference_time }}ms</small>
+                        <small><strong>Avg: {{ model.avg_inference_time|floatformat:0 }}ms</strong></small>
+                        <small>Max: {{ model.max_inference_time }}ms</small>
+                    </div>
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: 33%"></div>
+                        <div class="progress-bar bg-warning" style="width: 34%"></div>
+                        <div class="progress-bar bg-danger" style="width: 33%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            No hay modelos con predicciones aún. Sube una imagen para comenzar.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Métricas Recientes -->
+<div class="table-card">
+    <h5 class="mb-3"><i class="bi bi-graph-up"></i> Métricas Recientes</h5>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Modelo</th>
+                    <th>Métrica</th>
+                    <th>Valor</th>
+                    <th>Fecha</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for metric in recent_metrics %}
+                <tr>
+                    <td><span class="badge bg-primary">{{ metric.model_name }}</span></td>
+                    <td>{{ metric.metric_name }}</td>
+                    <td><strong>{{ metric.metric_value|floatformat:3 }}</strong></td>
+                    <td><small>{{ metric.measured_at|date:"Y-m-d H:i" }}</small></td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4" class="text-center text-muted">No hay métricas disponibles</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

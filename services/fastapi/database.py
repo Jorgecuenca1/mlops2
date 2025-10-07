@@ -66,7 +66,7 @@ class Image(Base):
     processed_at = Column(DateTime)
 
     # Metadata JSON
-    metadata = Column(JSON)
+    image_metadata = Column(JSON)
 
 class ModelMetric(Base):
     """Tabla de métricas por modelo"""
